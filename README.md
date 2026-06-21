@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SEGMAX OIL NIG LTD — Manufacturing Operations Management System (MOMS)
 
-## Getting Started
+Internal ERP for SEGMAX's lubricant manufacturing operations: Production, Inventory,
+Quality Control, HR, Sales & Distribution, and Safety — built on Next.js 15, Prisma 7,
+PostgreSQL (Supabase), Auth.js, and shadcn/ui.
 
-First, run the development server:
+## Tech stack
+
+- Next.js 15 (App Router) + TypeScript + Tailwind CSS v4 + shadcn/ui
+- Prisma 7 (driver adapter: `@prisma/adapter-pg`) + PostgreSQL
+- Auth.js v5 (Credentials provider, JWT sessions, role-based middleware)
+- Supabase Storage (COA documents, training certificates)
+- Recharts, React Hook Form, Zod
+
+## 1. Create a Supabase project
+
+1. Go to [supabase.com](https://supabase.com) → New Project.
+2. Once provisioned, go to **Project Settings → Database → Connection string**.
+   - Copy the **Transaction pooler** string (port `6543`) → this is `DATABASE_URL`.
+   - Copy the **Session/Direct** string (port `5432`) → this is `DIRECT_URL`.
+3. Go to **Project Settings → API** and copy:
+   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+   - **service_role key** (not the anon key) → `SUPABASE_SERVICE_ROLE_KEY`
+4. Go to **Storage** → create a new **public** bucket named `coa-documents`
+   (or any name, matching `SUPABASE_COA_BUCKET`).
+
+## 2. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Fill in `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY` from step 1. Generate `AUTH_SECRET` with:
+
+```bash
+npx auth secret
+```
+
+## 3. Install dependencies, migrate, and seed
+
+```bash
+npm install
+npx prisma migrate dev --name init
+npm run seed
+```
+
+The seed script creates one demo user per role (password for all: `Passw0rd!`):
+
+| Role | Email |
+|---|---|
+| CEO | ceo@segmaxoil.com |
+| Super Admin | admin@segmaxoil.com |
+| Production Manager | production@segmaxoil.com |
+| Store Manager | store@segmaxoil.com |
+| QC Officer | qc@segmaxoil.com |
+| HR Officer | hr@segmaxoil.com |
+| Sales Officer | sales@segmaxoil.com |
+| Safety Officer | safety@segmaxoil.com |
+
+It also seeds sample raw materials, stock lots, a product, an in-progress batch,
+a sales order, employees, and safety records so every dashboard/list has data.
+
+## 4. Run the app
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) and log in with any seeded account.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+prisma/schema.prisma      Database schema (28 models across 6 domains)
+prisma/seed.ts            Demo data seed script
+prisma.config.ts          Prisma 7 CLI config (migration connection)
+src/
+  middleware.ts            Auth + role-based route protection
+  auth.ts                  Auth.js v5 config (Credentials provider)
+  app/
+    login/                 Login page
+    (dashboard)/            Authenticated shell: sidebar, header, all modules
+    api/                    REST API routes (mirror the service layer)
+  components/
+    ui/                     shadcn/ui primitives
+    layout/                 Sidebar, header, nav
+    dashboard/               KPI cards, charts
+    shared/                  DataTable, StatusBadge, PageHeader, etc.
+    <module>/               Module-specific forms and views
+  lib/
+    services/                Business logic + permission checks + audit logging
+    validations/              Zod schemas
+    permissions.ts            Role → module access matrix
+    prisma.ts, supabase.ts, audit.ts, notify.ts, utils.ts
+```
 
-## Learn More
+## Useful commands
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npx prisma studio        # browse the database
+npx prisma migrate dev   # create/apply a new migration
+npm run seed              # re-run the seed script
+npm run build              # production build / type-check
+```

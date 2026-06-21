@@ -1,0 +1,722 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// CORE / AUTH
+// ─────────────────────────────────────────────────────────────────────────
+
+enum Role {
+  CEO
+  SUPER_ADMIN
+  PRODUCTION_MANAGER
+  STORE_MANAGER
+  QC_OFFICER
+  HR_OFFICER
+  SALES_OFFICER
+  SAFETY_OFFICER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean  @default(true)
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee Employee?
+
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  createdBatches    BatchCard[]             @relation("BatchCreatedBy")
+  productionLogs    ProductionLog[]
+  sampleRequests    QCSampleRequest[]       @relation("SampleRequestedBy")
+  labTests          LabTest[]               @relation("LabTestedBy")
+  ncrsRaised        NonConformanceReport[]  @relation("NCRRaisedBy")
+  salesOrders       SalesOrder[]            @relation("OrderCreatedBy")
+  complaintsHandled CustomerComplaint[]     @relation("ComplaintHandledBy")
+  safetyChecklists  SafetyChecklist[]       @relation("ChecklistCheckedBy")
+  incidentsReported SafetyIncident[]        @relation("IncidentReportedBy")
+  correctiveActions CorrectiveAction[]      @relation("ActionAssignedTo")
+  permitsRequested  HotWorkPermit[]         @relation("PermitRequestedBy")
+  permitsApproved   HotWorkPermit[]         @relation("PermitApprovedBy")
+  lotosLocked       LockOutTagOut[]         @relation("LotoLockedBy")
+  lotosUnlocked     LockOutTagOut[]         @relation("LotoUnlockedBy")
+  drillsConducted   SafetyDrillRecord[]     @relation("DrillConductedBy")
+  ppeChecks         PpeRecord[]             @relation("PpeCheckedBy")
+  stockMovements    StockMovement[]         @relation("MovementBy")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  changes   Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  ERROR
+  SUCCESS
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PRODUCTION
+// ─────────────────────────────────────────────────────────────────────────
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  sku       String   @unique
+  category  String?
+  uom       String
+  specSheet Json?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  batches       BatchCard[]
+  orderItems    SalesOrderItem[]
+  finishedGoods FinishedGood[]
+}
+
+enum BatchStatus {
+  DRAFT
+  MATERIALS_VERIFIED
+  IN_BLENDING
+  LAB_TEST_PENDING
+  ADJUSTMENT
+  FILTERING
+  FILLING
+  BADGING
+  PACKAGING
+  STORED
+  COMPLETED
+  ON_HOLD
+  REJECTED
+}
+
+model BatchCard {
+  id          String      @id @default(cuid())
+  batchNumber String      @unique
+  productId   String
+  product     Product     @relation(fields: [productId], references: [id])
+  plannedQty  Float
+  uom         String
+  status      BatchStatus @default(DRAFT)
+  createdById String
+  createdBy   User        @relation("BatchCreatedBy", fields: [createdById], references: [id])
+  startedAt   DateTime?
+  completedAt DateTime?
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  materials        BatchMaterial[]
+  logs             ProductionLog[]
+  sampleRequests   QCSampleRequest[]
+  labTests         LabTest[]
+  ncrs             NonConformanceReport[]
+  retentionSamples RetentionSample[]
+  finishedGoods    FinishedGood[]
+  orderItems       SalesOrderItem[]
+}
+
+model BatchMaterial {
+  id            String      @id @default(cuid())
+  batchId       String
+  batch         BatchCard   @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  rawMaterialId String
+  rawMaterial   RawMaterial @relation(fields: [rawMaterialId], references: [id])
+  stockLotId    String?
+  stockLot      StockLot?   @relation(fields: [stockLotId], references: [id])
+  qtyPlanned    Float
+  qtyUsed       Float?
+  uom           String
+  createdAt     DateTime    @default(now())
+}
+
+model ProductionLog {
+  id        String      @id @default(cuid())
+  batchId   String
+  batch     BatchCard   @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  stage     BatchStatus
+  note      String?
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  createdAt DateTime    @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// INVENTORY
+// ─────────────────────────────────────────────────────────────────────────
+
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String
+  contactName String?
+  phone       String?
+  email       String?
+  address     String?
+  createdAt   DateTime @default(now())
+
+  stockLots StockLot[]
+}
+
+model RawMaterial {
+  id           String   @id @default(cuid())
+  name         String
+  code         String   @unique
+  uom          String
+  reorderLevel Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stockLots      StockLot[]
+  batchMaterials BatchMaterial[]
+}
+
+enum LocationType {
+  RAW_MATERIAL
+  FINISHED_GOODS
+}
+
+model StorageLocation {
+  id        String       @id @default(cuid())
+  name      String
+  type      LocationType
+  capacity  Float?
+  createdAt DateTime     @default(now())
+
+  stockLots     StockLot[]
+  finishedGoods FinishedGood[]
+}
+
+enum StockLotStatus {
+  AVAILABLE
+  QUARANTINED
+  CONSUMED
+  EXPIRED
+  REJECTED
+}
+
+model StockLot {
+  id                String          @id @default(cuid())
+  lotNumber         String          @unique
+  rawMaterialId     String
+  rawMaterial       RawMaterial     @relation(fields: [rawMaterialId], references: [id])
+  supplierId        String?
+  supplier          Supplier?       @relation(fields: [supplierId], references: [id])
+  quantityReceived  Float
+  quantityRemaining Float
+  uom               String
+  coaUrl            String?
+  receivedDate      DateTime
+  expiryDate        DateTime?
+  storageLocationId String?
+  storageLocation   StorageLocation? @relation(fields: [storageLocationId], references: [id])
+  status            StockLotStatus  @default(AVAILABLE)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  batchMaterials BatchMaterial[]
+  movements      StockMovement[]
+}
+
+enum FinishedGoodStatus {
+  IN_STORAGE
+  ALLOCATED
+  DISPATCHED
+}
+
+model FinishedGood {
+  id                String              @id @default(cuid())
+  productId         String
+  product           Product             @relation(fields: [productId], references: [id])
+  batchId           String
+  batch             BatchCard           @relation(fields: [batchId], references: [id])
+  quantity          Float
+  uom               String
+  storageLocationId String?
+  storageLocation   StorageLocation?    @relation(fields: [storageLocationId], references: [id])
+  expiryDate        DateTime?
+  status            FinishedGoodStatus  @default(IN_STORAGE)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  movements  StockMovement[]
+  orderItems SalesOrderItem[]
+}
+
+enum MovementType {
+  RECEIPT
+  ISSUE
+  TRANSFER
+  ADJUSTMENT
+  DISPATCH
+}
+
+model StockMovement {
+  id             String        @id @default(cuid())
+  itemType       String
+  stockLotId     String?
+  stockLot       StockLot?     @relation(fields: [stockLotId], references: [id])
+  finishedGoodId String?
+  finishedGood   FinishedGood? @relation(fields: [finishedGoodId], references: [id])
+  type           MovementType
+  quantity       Float
+  fromLocation   String?
+  toLocation     String?
+  reference      String?
+  userId         String
+  user           User          @relation("MovementBy", fields: [userId], references: [id])
+  createdAt      DateTime      @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// QUALITY CONTROL
+// ─────────────────────────────────────────────────────────────────────────
+
+enum SampleStatus {
+  PENDING
+  TESTED
+}
+
+model QCSampleRequest {
+  id            String       @id @default(cuid())
+  batchId       String
+  batch         BatchCard    @relation(fields: [batchId], references: [id])
+  requestedById String
+  requestedBy   User         @relation("SampleRequestedBy", fields: [requestedById], references: [id])
+  status        SampleStatus @default(PENDING)
+  notes         String?
+  createdAt     DateTime     @default(now())
+
+  labTest LabTest?
+}
+
+enum LabTestResult {
+  PASS
+  FAIL
+  HOLD
+}
+
+model LabTest {
+  id              String        @id @default(cuid())
+  sampleRequestId String        @unique
+  sampleRequest   QCSampleRequest @relation(fields: [sampleRequestId], references: [id])
+  batchId         String
+  batch           BatchCard     @relation(fields: [batchId], references: [id])
+  testedById      String
+  testedBy        User          @relation("LabTestedBy", fields: [testedById], references: [id])
+  result          LabTestResult
+  remarks         String?
+  testedAt        DateTime      @default(now())
+
+  parameters TestParameterResult[]
+}
+
+model TestParameterResult {
+  id            String  @id @default(cuid())
+  labTestId     String
+  labTest       LabTest @relation(fields: [labTestId], references: [id], onDelete: Cascade)
+  parameterName String
+  unit          String?
+  specMin       Float?
+  specMax       Float?
+  actualValue   Float
+  passed        Boolean
+}
+
+enum NCRStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+model NonConformanceReport {
+  id               String     @id @default(cuid())
+  batchId          String?
+  batch            BatchCard? @relation(fields: [batchId], references: [id])
+  description      String
+  rootCause        String?
+  correctiveAction String?
+  status           NCRStatus  @default(OPEN)
+  raisedById       String
+  raisedBy         User       @relation("NCRRaisedBy", fields: [raisedById], references: [id])
+  createdAt        DateTime   @default(now())
+  closedAt         DateTime?
+
+  correctiveActions CorrectiveAction[]
+}
+
+model RetentionSample {
+  id            String    @id @default(cuid())
+  batchId       String
+  batch         BatchCard @relation(fields: [batchId], references: [id])
+  location      String
+  retainedUntil DateTime
+  disposed      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// HUMAN RESOURCES
+// ─────────────────────────────────────────────────────────────────────────
+
+model Employee {
+  id           String   @id @default(cuid())
+  userId       String?  @unique
+  user         User?    @relation(fields: [userId], references: [id])
+  employeeCode String   @unique
+  fullName     String
+  department   String
+  position     String
+  phone        String?
+  hireDate     DateTime
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  attendances      Attendance[]
+  shiftAssignments ShiftAssignment[]
+  trainingRecords  TrainingRecord[]
+  ppeRecords       PpeRecord[]
+  disciplineLogs   DisciplineLog[]
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  ON_LEAVE
+}
+
+model Attendance {
+  id            String           @id @default(cuid())
+  employeeId    String
+  employee      Employee         @relation(fields: [employeeId], references: [id])
+  date          DateTime
+  clockIn       DateTime?
+  clockOut      DateTime?
+  status        AttendanceStatus @default(PRESENT)
+  handoverNotes String?
+  createdAt     DateTime         @default(now())
+
+  @@unique([employeeId, date])
+}
+
+model Shift {
+  id        String @id @default(cuid())
+  name      String
+  startTime String
+  endTime   String
+
+  assignments ShiftAssignment[]
+}
+
+model ShiftAssignment {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  shiftId    String
+  shift      Shift    @relation(fields: [shiftId], references: [id])
+  date       DateTime
+
+  @@unique([employeeId, date])
+}
+
+model TrainingRecord {
+  id             String    @id @default(cuid())
+  employeeId     String
+  employee       Employee  @relation(fields: [employeeId], references: [id])
+  trainingName   String
+  completedDate  DateTime
+  expiryDate     DateTime?
+  certificateUrl String?
+  createdAt      DateTime  @default(now())
+}
+
+enum PpeContext {
+  HR
+  SAFETY
+}
+
+model PpeRecord {
+  id          String     @id @default(cuid())
+  employeeId  String
+  employee    Employee   @relation(fields: [employeeId], references: [id])
+  context     PpeContext
+  checkDate   DateTime   @default(now())
+  items       Json
+  compliant   Boolean
+  checkedById String
+  checkedBy   User       @relation("PpeCheckedBy", fields: [checkedById], references: [id])
+  createdAt   DateTime   @default(now())
+}
+
+enum DisciplineType {
+  VERBAL_WARNING
+  WRITTEN_WARNING
+  SUSPENSION
+  TERMINATION
+  COMMENDATION
+}
+
+model DisciplineLog {
+  id           String         @id @default(cuid())
+  employeeId   String
+  employee     Employee       @relation(fields: [employeeId], references: [id])
+  type         DisciplineType
+  description  String
+  actionTaken  String?
+  date         DateTime       @default(now())
+  recordedById String
+  createdAt    DateTime       @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SALES & DISTRIBUTION
+// ─────────────────────────────────────────────────────────────────────────
+
+model Customer {
+  id            String   @id @default(cuid())
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  createdAt     DateTime @default(now())
+
+  orders     SalesOrder[]
+  complaints CustomerComplaint[]
+}
+
+enum OrderStatus {
+  PENDING
+  BATCH_MATCHED
+  PICKED_PACKED
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+model SalesOrder {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique
+  customerId  String
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  status      OrderStatus @default(PENDING)
+  createdById String
+  createdBy   User        @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime    @default(now())
+
+  items        SalesOrderItem[]
+  deliveryNote DeliveryNote?
+  complaints   CustomerComplaint[]
+}
+
+model SalesOrderItem {
+  id             String        @id @default(cuid())
+  orderId        String
+  order          SalesOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product       @relation(fields: [productId], references: [id])
+  quantity       Float
+  unitPrice      Float
+  batchId        String?
+  batch          BatchCard?    @relation(fields: [batchId], references: [id])
+  finishedGoodId String?
+  finishedGood   FinishedGood? @relation(fields: [finishedGoodId], references: [id])
+}
+
+enum DeliveryStatus {
+  PENDING
+  DISPATCHED
+  CONFIRMED
+}
+
+model DeliveryNote {
+  id             String         @id @default(cuid())
+  orderId        String         @unique
+  order          SalesOrder     @relation(fields: [orderId], references: [id])
+  deliveryNumber String         @unique
+  vehicleNo      String?
+  driverName     String?
+  dispatchedAt   DateTime?
+  confirmedAt    DateTime?
+  status         DeliveryStatus @default(PENDING)
+  createdAt      DateTime       @default(now())
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+model CustomerComplaint {
+  id          String          @id @default(cuid())
+  customerId  String
+  customer    Customer        @relation(fields: [customerId], references: [id])
+  orderId     String?
+  order       SalesOrder?     @relation(fields: [orderId], references: [id])
+  description String
+  status      ComplaintStatus @default(OPEN)
+  resolution  String?
+  handledById String?
+  handledBy   User?           @relation("ComplaintHandledBy", fields: [handledById], references: [id])
+  raisedAt    DateTime        @default(now())
+  resolvedAt  DateTime?
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SAFETY
+// ─────────────────────────────────────────────────────────────────────────
+
+model SafetyChecklist {
+  id          String   @id @default(cuid())
+  date        DateTime @default(now())
+  shift       String?
+  items       Json
+  status      String   @default("OK")
+  checkedById String
+  checkedBy   User     @relation("ChecklistCheckedBy", fields: [checkedById], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+enum PermitStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  CLOSED
+}
+
+model HotWorkPermit {
+  id            String       @id @default(cuid())
+  location      String
+  description   String
+  requestedById String
+  requestedBy   User         @relation("PermitRequestedBy", fields: [requestedById], references: [id])
+  approvedById  String?
+  approvedBy    User?        @relation("PermitApprovedBy", fields: [approvedById], references: [id])
+  status        PermitStatus @default(REQUESTED)
+  validFrom     DateTime
+  validTo       DateTime
+  createdAt     DateTime     @default(now())
+}
+
+enum LotoStatus {
+  LOCKED
+  UNLOCKED
+}
+
+model LockOutTagOut {
+  id           String     @id @default(cuid())
+  equipment    String
+  reason       String
+  lockedById   String
+  lockedBy     User       @relation("LotoLockedBy", fields: [lockedById], references: [id])
+  unlockedById String?
+  unlockedBy   User?      @relation("LotoUnlockedBy", fields: [unlockedById], references: [id])
+  lockedAt     DateTime   @default(now())
+  unlockedAt   DateTime?
+  status       LotoStatus @default(LOCKED)
+}
+
+enum IncidentType {
+  SPILL
+  INJURY
+  NEAR_MISS
+  FIRE
+  OTHER
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  REPORTED
+  INVESTIGATING
+  CLOSED
+}
+
+model SafetyIncident {
+  id           String           @id @default(cuid())
+  type         IncidentType
+  description  String
+  location     String?
+  severity     IncidentSeverity @default(LOW)
+  status       IncidentStatus   @default(REPORTED)
+  reportedById String
+  reportedBy   User             @relation("IncidentReportedBy", fields: [reportedById], references: [id])
+  createdAt    DateTime         @default(now())
+
+  correctiveActions CorrectiveAction[]
+}
+
+enum CorrectiveActionStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+}
+
+model CorrectiveAction {
+  id           String                  @id @default(cuid())
+  incidentId   String?
+  incident     SafetyIncident?         @relation(fields: [incidentId], references: [id])
+  ncrId        String?
+  ncr          NonConformanceReport?   @relation(fields: [ncrId], references: [id])
+  description  String
+  assignedToId String
+  assignedTo   User                    @relation("ActionAssignedTo", fields: [assignedToId], references: [id])
+  dueDate      DateTime?
+  status       CorrectiveActionStatus  @default(OPEN)
+  completedAt  DateTime?
+  createdAt    DateTime                @default(now())
+}
+
+model SafetyDrillRecord {
+  id            String   @id @default(cuid())
+  month         Int
+  year          Int
+  type          String
+  conductedById String
+  conductedBy   User     @relation("DrillConductedBy", fields: [conductedById], references: [id])
+  attendees     Int
+  notes         String?
+  createdAt     DateTime @default(now())
+}
