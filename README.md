@@ -11,6 +11,7 @@ PostgreSQL (Supabase), Auth.js, and shadcn/ui.
 - Auth.js v5 (Credentials provider, JWT sessions, role-based middleware)
 - Supabase Storage (COA documents, training certificates)
 - Recharts, React Hook Form, Zod
+- PWA (installable on desktop/mobile, via Serwist — see [PWA](#pwa) below)
 
 ## 1. Create a Supabase project
 
@@ -103,3 +104,18 @@ npx prisma migrate dev   # create/apply a new migration
 npm run seed              # re-run the seed script
 npm run build              # production build / type-check
 ```
+
+## PWA
+
+The app is installable (desktop and mobile "Add to Home Screen" / "Install app") via a
+web manifest (`src/app/manifest.ts`) and a Serwist-built service worker
+(`src/app/sw.ts` → compiled to `public/sw.js` on every `npm run build`).
+
+- Static assets (JS/CSS/fonts/images) are precached/cached for fast, app-like loads.
+- Pages and `/api/*` routes always use the network first — the app never shows stale
+  production/inventory/safety data while online. If the network is unreachable, a
+  minimal "You're offline" page (`src/app/~offline`) is shown instead of a browser error.
+- The service worker only runs in production builds (`npm run build && npm run start`);
+  `npm run dev` does not register one, so you won't see cached responses while developing.
+- To change the app icon, edit `scripts/generate-pwa-icons.mjs` and re-run
+  `node scripts/generate-pwa-icons.mjs` to regenerate every icon size.

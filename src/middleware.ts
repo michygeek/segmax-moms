@@ -6,7 +6,7 @@ import { canRead, type ModuleKey } from "@/lib/permissions";
 
 const { auth } = NextAuth(authConfig);
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/~offline"];
 
 const ROUTE_MODULE: { prefix: string; module: ModuleKey }[] = [
   { prefix: "/dashboard", module: "dashboard" },
@@ -45,5 +45,9 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // sw.js / manifest / icons must stay reachable without auth so the service
+  // worker can install and precache the offline fallback before any login.
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|icon.png|apple-icon.png).*)",
+  ],
 };
