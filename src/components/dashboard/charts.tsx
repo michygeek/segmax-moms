@@ -17,7 +17,13 @@ import {
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const COLORS = ["#2563eb", "#16a34a", "#d97706", "#dc2626", "#7c3aed", "#0891b2"];
+const COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+];
 
 export function ProductionTrendChart({ data }: { data: { date: string; count: number }[] }) {
   return (
@@ -32,7 +38,7 @@ export function ProductionTrendChart({ data }: { data: { date: string; count: nu
             <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d) => d.slice(5)} />
             <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
             <Tooltip />
-            <Area type="monotone" dataKey="count" stroke="#2563eb" fill="#2563eb" fillOpacity={0.15} />
+            <Area type="monotone" dataKey="count" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.15} />
           </AreaChart>
         </ResponsiveContainer>
       </CardContent>
@@ -53,7 +59,7 @@ export function InventoryLevelsChart({ data }: { data: { name: string; quantity:
             <XAxis type="number" tick={{ fontSize: 11 }} />
             <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={110} />
             <Tooltip />
-            <Bar dataKey="quantity" fill="#16a34a" radius={4} />
+            <Bar dataKey="quantity" fill="var(--chart-3)" radius={4} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
@@ -104,7 +110,7 @@ export function IncidentBreakdownChart({ data }: { data: { type: string; count: 
               <XAxis dataKey="type" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
               <Tooltip />
-              <Bar dataKey="count" fill="#dc2626" radius={4} />
+              <Bar dataKey="count" fill="var(--chart-2)" radius={4} />
             </BarChart>
           </ResponsiveContainer>
         ) : (

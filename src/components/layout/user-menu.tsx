@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -38,10 +39,12 @@ export function UserMenu({ name, email, role }: { name: string; email: string; r
         </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>
-          <span className="block font-medium">{name}</span>
-          <span className="block text-xs font-normal text-muted-foreground">{email}</span>
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>
+            <span className="block font-medium">{name}</span>
+            <span className="block text-xs font-normal text-muted-foreground">{email}</span>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled>
           <User className="size-4" />

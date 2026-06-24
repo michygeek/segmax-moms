@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 
 import { LoginForm } from "@/app/login/login-form";
 import {
@@ -24,6 +25,14 @@ export default async function LoginPage({
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
+          <Image
+            src="/segmaxlogod.png"
+            alt="Segmax"
+            width={72}
+            height={72}
+            className="mx-auto mb-3 size-18 rounded-xl object-contain"
+            priority
+          />
           <h1 className="text-2xl font-semibold tracking-tight">SEGMAX OIL NIG LTD</h1>
           <p className="text-sm text-muted-foreground">
             Manufacturing Operations Management System

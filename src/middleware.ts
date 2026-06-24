@@ -48,6 +48,6 @@ export const config = {
   // sw.js / manifest / icons must stay reachable without auth so the service
   // worker can install and precache the offline fallback before any login.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|icon.png|apple-icon.png).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|sw.js|manifest.webmanifest|icons/|icon.png|apple-icon.png|segmaxlogod.png).*)",
   ],
 };
