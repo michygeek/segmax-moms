@@ -42,6 +42,21 @@ export async function updateUser(actor: Actor, id: string, input: UpdateUserInpu
   if (actor.id === id && input.isActive === false) {
     throw new Error("You cannot deactivate your own account.");
   }
+  if (actor.id === id && input.role !== actor.role) {
+    throw new Error("You cannot change your own role.");
+  }
+
+  const existing = await prisma.user.findUniqueOrThrow({ where: { id } });
+  const losingSuperAdmin =
+    existing.role === "SUPER_ADMIN" && (input.role !== "SUPER_ADMIN" || input.isActive === false);
+  if (losingSuperAdmin) {
+    const otherActiveSuperAdmins = await prisma.user.count({
+      where: { role: "SUPER_ADMIN", isActive: true, id: { not: id } },
+    });
+    if (otherActiveSuperAdmins === 0) {
+      throw new Error("Cannot remove the last active Super Admin.");
+    }
+  }
 
   const user = await prisma.user.update({
     where: { id },

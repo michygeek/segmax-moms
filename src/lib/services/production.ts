@@ -2,7 +2,7 @@ import type { BatchStatus, Role } from "@prisma/client";
 
 import { writeAuditLog } from "@/lib/audit";
 import { notifyRoles } from "@/lib/notify";
-import { assertWrite } from "@/lib/permissions";
+import { assertWrite, canRead } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { generateCode } from "@/lib/utils";
 import type { CreateBatchInput, ProductInput } from "@/lib/validations/production";
@@ -48,7 +48,8 @@ export async function listBatches() {
   });
 }
 
-export async function getBatch(id: string) {
+export async function getBatch(actorRole: Role, id: string) {
+  if (!canRead(actorRole, "production")) return null;
   return prisma.batchCard.findUnique({
     where: { id },
     include: {
@@ -121,6 +122,7 @@ export function getAllowedNextStatuses(current: BatchStatus): BatchStatus[] {
   return ALLOWED_TRANSITIONS[current] ?? [];
 }
 
+/** Production's own manual stage-advance action — requires production write. */
 export async function transitionBatch(
   actor: Actor,
   batchId: string,
@@ -128,7 +130,21 @@ export async function transitionBatch(
   note?: string
 ) {
   assertWrite(actor.role, "production");
+  return transitionBatchAsSideEffect(actor, batchId, toStatus, note);
+}
 
+/**
+ * Same transition logic, without the production-write check — for callers in
+ * other modules (e.g. Quality submitting a lab test) who have already
+ * authorized their own action and are driving a documented side effect on the
+ * batch, not directly editing production data themselves.
+ */
+export async function transitionBatchAsSideEffect(
+  actor: Actor,
+  batchId: string,
+  toStatus: BatchStatus,
+  note?: string
+) {
   const batch = await prisma.batchCard.findUniqueOrThrow({ where: { id: batchId } });
   const allowed = getAllowedNextStatuses(batch.status);
   if (!allowed.includes(toStatus)) {
@@ -226,11 +242,23 @@ export async function consumeBatchMaterials(
         data: { qtyUsed: c.qtyUsed, stockLotId: lot.id },
       });
 
-      const remaining = lot.quantityRemaining - c.qtyUsed;
-      await tx.stockLot.update({
-        where: { id: lot.id },
-        data: { quantityRemaining: remaining, status: remaining <= 0 ? "CONSUMED" : "AVAILABLE" },
+      // Guard the decrement with a WHERE on the current quantity so two
+      // concurrent batches consuming the same lot can't both pass the check
+      // above and overdraw it — Postgres evaluates this WHERE atomically
+      // against the row at UPDATE time, not against the stale value read above.
+      const decremented = await tx.stockLot.updateMany({
+        where: { id: lot.id, quantityRemaining: { gte: c.qtyUsed } },
+        data: { quantityRemaining: { decrement: c.qtyUsed } },
       });
+      if (decremented.count === 0) {
+        throw new Error(
+          `Insufficient stock in lot ${lot.lotNumber} — it was just consumed by another batch. Please retry.`
+        );
+      }
+      const updatedLot = await tx.stockLot.findUniqueOrThrow({ where: { id: lot.id } });
+      if (updatedLot.quantityRemaining <= 0) {
+        await tx.stockLot.update({ where: { id: lot.id }, data: { status: "CONSUMED" } });
+      }
 
       await tx.stockMovement.create({
         data: {

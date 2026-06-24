@@ -2,9 +2,9 @@ import type { NCRStatus, Role } from "@prisma/client";
 
 import { writeAuditLog } from "@/lib/audit";
 import { notifyRoles } from "@/lib/notify";
-import { assertWrite } from "@/lib/permissions";
+import { assertWrite, canRead } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { transitionBatch } from "@/lib/services/production";
+import { transitionBatchAsSideEffect } from "@/lib/services/production";
 import type {
   CreateSampleRequestInput,
   NcrInput,
@@ -27,7 +27,8 @@ export async function listSampleRequests() {
   });
 }
 
-export async function getSampleRequest(id: string) {
+export async function getSampleRequest(actorRole: Role, id: string) {
+  if (!canRead(actorRole, "quality")) return null;
   return prisma.qCSampleRequest.findUnique({
     where: { id },
     include: {
@@ -84,6 +85,17 @@ export async function submitLabTestAndRelease(
   }
 
   const labTest = await prisma.$transaction(async (tx) => {
+    // Atomically claim the sample request first — guards against a double
+    // submit (double-click/retry) racing past the PENDING check above and
+    // both creating a LabTest for the same request.
+    const claimed = await tx.qCSampleRequest.updateMany({
+      where: { id: sampleRequestId, status: "PENDING" },
+      data: { status: "TESTED" },
+    });
+    if (claimed.count === 0) {
+      throw new Error("This sample request has already been tested.");
+    }
+
     const created = await tx.labTest.create({
       data: {
         sampleRequestId,
@@ -107,11 +119,6 @@ export async function submitLabTestAndRelease(
       include: { parameters: true },
     });
 
-    await tx.qCSampleRequest.update({
-      where: { id: sampleRequestId },
-      data: { status: "TESTED" },
-    });
-
     return created;
   });
 
@@ -124,7 +131,7 @@ export async function submitLabTestAndRelease(
   });
 
   const nextStatus = input.result === "PASS" ? "FILTERING" : "ADJUSTMENT";
-  await transitionBatch(actor, sampleRequest.batchId, nextStatus, input.remarks);
+  await transitionBatchAsSideEffect(actor, sampleRequest.batchId, nextStatus, input.remarks);
 
   let ncr = null;
   if (input.result === "FAIL" && input.raiseNcr) {

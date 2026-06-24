@@ -26,7 +26,7 @@ export default async function SampleRequestDetailPage({
 }) {
   const { id } = await params;
   const user = await requireUser();
-  const sampleRequest = await getSampleRequest(id);
+  const sampleRequest = await getSampleRequest(user.role, id);
   if (!sampleRequest) notFound();
 
   const userCanWrite = canWrite(user.role, "quality");

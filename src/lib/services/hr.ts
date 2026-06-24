@@ -65,9 +65,10 @@ export async function deactivateEmployee(actor: Actor, id: string) {
 
 // ── Attendance ──────────────────────────────────────────────────────────
 
-export async function listAttendance() {
+export async function listAttendance(take = 200) {
   return prisma.attendance.findMany({
     orderBy: { date: "desc" },
+    take,
     include: { employee: { select: { fullName: true, employeeCode: true } } },
   });
 }

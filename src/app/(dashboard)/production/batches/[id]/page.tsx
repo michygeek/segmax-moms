@@ -21,7 +21,7 @@ import { formatDateTime, formatNumber } from "@/lib/utils";
 export default async function BatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
-  const batch = await getBatch(id);
+  const batch = await getBatch(user.role, id);
   if (!batch) notFound();
 
   const userCanWrite = canWrite(user.role, "production");

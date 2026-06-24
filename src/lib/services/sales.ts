@@ -2,7 +2,7 @@ import type { OrderStatus, Role } from "@prisma/client";
 
 import { writeAuditLog } from "@/lib/audit";
 import { notifyRoles } from "@/lib/notify";
-import { assertWrite } from "@/lib/permissions";
+import { assertWrite, canRead } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { generateCode } from "@/lib/utils";
 import type {
@@ -62,7 +62,8 @@ export async function listOrders() {
   });
 }
 
-export async function getOrder(id: string) {
+export async function getOrder(actorRole: Role, id: string) {
+  if (!canRead(actorRole, "sales")) return null;
   return prisma.salesOrder.findUnique({
     where: { id },
     include: {
@@ -116,12 +117,23 @@ export function getAllowedNextStatuses(current: OrderStatus): OrderStatus[] {
   return ALLOWED_TRANSITIONS[current] ?? [];
 }
 
-/** Finished goods available for matching against a given order line item's product. */
-export async function listAvailableFinishedGoods(productId: string) {
-  return prisma.finishedGood.findMany({
-    where: { productId, status: "IN_STORAGE" },
+/**
+ * Finished goods available for matching against order line items' products,
+ * grouped by productId. Pass every unmatched product id in one call instead
+ * of looping per product — each round trip to the database costs real
+ * latency on this app's hosting setup.
+ */
+export async function listAvailableFinishedGoodsByProduct(productIds: string[]) {
+  if (productIds.length === 0) return {};
+  const finishedGoods = await prisma.finishedGood.findMany({
+    where: { productId: { in: productIds }, status: "IN_STORAGE" },
     orderBy: { createdAt: "asc" },
   });
+  const byProduct: Record<string, typeof finishedGoods> = {};
+  for (const fg of finishedGoods) {
+    (byProduct[fg.productId] ??= []).push(fg);
+  }
+  return byProduct;
 }
 
 export async function matchBatchToOrder(actor: Actor, orderId: string, input: MatchBatchInput) {
@@ -135,9 +147,17 @@ export async function matchBatchToOrder(actor: Actor, orderId: string, input: Ma
 
   await prisma.$transaction(async (tx) => {
     for (const match of input.matches) {
-      const finishedGood = await tx.finishedGood.findUniqueOrThrow({ where: { id: match.finishedGoodId } });
+      const [item, finishedGood] = await Promise.all([
+        tx.salesOrderItem.findUniqueOrThrow({ where: { id: match.itemId } }),
+        tx.finishedGood.findUniqueOrThrow({ where: { id: match.finishedGoodId } }),
+      ]);
       if (finishedGood.status !== "IN_STORAGE") {
         throw new Error(`Finished good is no longer available.`);
+      }
+      if (finishedGood.quantity < item.quantity) {
+        throw new Error(
+          `Finished good only has ${finishedGood.quantity} ${finishedGood.uom} available, but this order line needs ${item.quantity}.`
+        );
       }
 
       await tx.salesOrderItem.update({
@@ -243,24 +263,23 @@ export async function dispatchOrder(actor: Actor, orderId: string, input: Dispat
 
     const finishedGoodIds = order.items.map((i) => i.finishedGoodId).filter((id): id is string => !!id);
     if (finishedGoodIds.length > 0) {
+      const finishedGoods = await tx.finishedGood.findMany({ where: { id: { in: finishedGoodIds } } });
+
       await tx.finishedGood.updateMany({
         where: { id: { in: finishedGoodIds } },
         data: { status: "DISPATCHED" },
       });
 
-      for (const finishedGoodId of finishedGoodIds) {
-        const fg = await tx.finishedGood.findUniqueOrThrow({ where: { id: finishedGoodId } });
-        await tx.stockMovement.create({
-          data: {
-            itemType: "FINISHED_GOOD",
-            finishedGoodId,
-            type: "DISPATCH",
-            quantity: fg.quantity,
-            reference: `Sales order ${orderId} dispatch (${input.vehicleNo ?? "no vehicle logged"})`,
-            userId: actor.id,
-          },
-        });
-      }
+      await tx.stockMovement.createMany({
+        data: finishedGoods.map((fg) => ({
+          itemType: "FINISHED_GOOD" as const,
+          finishedGoodId: fg.id,
+          type: "DISPATCH" as const,
+          quantity: fg.quantity,
+          reference: `Sales order ${orderId} dispatch (${input.vehicleNo ?? "no vehicle logged"})`,
+          userId: actor.id,
+        })),
+      });
     }
   });
 

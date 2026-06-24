@@ -124,11 +124,14 @@ export async function getStockLot(id: string) {
 }
 
 export async function getExpiringLots(days = 30) {
-  const horizon = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  // Normalize to calendar-day boundaries so "expiring within N days" doesn't
+  // flicker in/out depending on what time of day this happens to run.
+  const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+  const horizon = new Date(todayStart.getTime() + days * 24 * 60 * 60 * 1000);
   return prisma.stockLot.findMany({
     where: {
       status: "AVAILABLE",
-      expiryDate: { lte: horizon, gte: new Date() },
+      expiryDate: { lte: horizon, gte: todayStart },
     },
     orderBy: { expiryDate: "asc" },
     include: { rawMaterial: { select: { name: true } } },
@@ -339,9 +342,10 @@ export async function dispatchFinishedGood(actor: Actor, id: string) {
 
 // ── Stock Movements ──────────────────────────────────────────────────────────
 
-export async function listStockMovements() {
+export async function listStockMovements(take = 200) {
   return prisma.stockMovement.findMany({
     orderBy: { createdAt: "desc" },
+    take,
     include: {
       stockLot: { select: { lotNumber: true, rawMaterial: { select: { name: true } } } },
       finishedGood: { select: { product: { select: { name: true } } } },

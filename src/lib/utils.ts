@@ -5,12 +5,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Pinned explicitly so server-rendered dates always show SEGMAX's local time
+// (Africa/Lagos, UTC+1) regardless of the server/Vercel region's own timezone.
+const SEGMAX_TIME_ZONE = "Africa/Lagos"
+
 export function formatDate(date: Date | string | null | undefined): string {
   if (!date) return "—"
   return new Date(date).toLocaleDateString("en-NG", {
     year: "numeric",
     month: "short",
     day: "numeric",
+    timeZone: SEGMAX_TIME_ZONE,
   })
 }
 
@@ -22,6 +27,7 @@ export function formatDateTime(date: Date | string | null | undefined): string {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: SEGMAX_TIME_ZONE,
   })
 }
 

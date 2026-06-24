@@ -62,7 +62,22 @@ export function ProductFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        // Discard any abandoned edits from a previous open so reopening
+        // always starts from the record's current saved values.
+        if (next) {
+          reset({
+            name: product?.name ?? "",
+            sku: product?.sku ?? "",
+            category: product?.category ?? "",
+            uom: product?.uom ?? "L",
+          });
+        }
+      }}
+    >
       <DialogTrigger render={trigger} />
       <DialogContent>
         <DialogHeader>

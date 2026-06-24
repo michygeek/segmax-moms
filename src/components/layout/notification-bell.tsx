@@ -63,17 +63,29 @@ export function NotificationBell({
 
   async function handleOpenItem(item: NotificationItem) {
     if (!item.isRead) {
-      await fetch(`/api/notifications/${item.id}/read`, { method: "POST" });
-      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, isRead: true } : i)));
-      setUnreadCount((c) => Math.max(0, c - 1));
+      try {
+        const res = await fetch(`/api/notifications/${item.id}/read`, { method: "POST" });
+        if (res.ok) {
+          setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, isRead: true } : i)));
+          setUnreadCount((c) => Math.max(0, c - 1));
+        }
+      } catch {
+        // ignore transient network failure — next poll will resync state
+      }
     }
     if (item.link) router.push(item.link);
   }
 
   async function handleMarkAllRead() {
-    await fetch("/api/notifications/read-all", { method: "POST" });
-    setItems((prev) => prev.map((i) => ({ ...i, isRead: true })));
-    setUnreadCount(0);
+    try {
+      const res = await fetch("/api/notifications/read-all", { method: "POST" });
+      if (res.ok) {
+        setItems((prev) => prev.map((i) => ({ ...i, isRead: true })));
+        setUnreadCount(0);
+      }
+    } catch {
+      // ignore transient network failure — next poll will resync state
+    }
   }
 
   return (

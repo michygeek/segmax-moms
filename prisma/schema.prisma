@@ -150,6 +150,9 @@ model BatchCard {
   retentionSamples RetentionSample[]
   finishedGoods    FinishedGood[]
   orderItems       SalesOrderItem[]
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model BatchMaterial {
@@ -251,6 +254,8 @@ model StockLot {
 
   batchMaterials BatchMaterial[]
   movements      StockMovement[]
+
+  @@index([status, expiryDate])
 }
 
 enum FinishedGoodStatus {
@@ -276,6 +281,8 @@ model FinishedGood {
 
   movements  StockMovement[]
   orderItems SalesOrderItem[]
+
+  @@index([status])
 }
 
 enum MovementType {
@@ -378,6 +385,8 @@ model NonConformanceReport {
   closedAt         DateTime?
 
   correctiveActions CorrectiveAction[]
+
+  @@index([status])
 }
 
 model RetentionSample {
@@ -543,6 +552,9 @@ model SalesOrder {
   items        SalesOrderItem[]
   deliveryNote DeliveryNote?
   complaints   CustomerComplaint[]
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model SalesOrderItem {
@@ -597,6 +609,8 @@ model CustomerComplaint {
   handledBy   User?           @relation("ComplaintHandledBy", fields: [handledById], references: [id])
   raisedAt    DateTime        @default(now())
   resolvedAt  DateTime?
+
+  @@index([status])
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -633,6 +647,8 @@ model HotWorkPermit {
   validFrom     DateTime
   validTo       DateTime
   createdAt     DateTime     @default(now())
+
+  @@index([status])
 }
 
 enum LotoStatus {
@@ -686,6 +702,8 @@ model SafetyIncident {
   createdAt    DateTime         @default(now())
 
   correctiveActions CorrectiveAction[]
+
+  @@index([status])
 }
 
 enum CorrectiveActionStatus {

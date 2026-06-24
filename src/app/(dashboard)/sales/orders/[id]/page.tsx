@@ -17,7 +17,7 @@ import {
   getAllowedNextStatuses,
   getOrder,
   getOrderAuditTrail,
-  listAvailableFinishedGoods,
+  listAvailableFinishedGoodsByProduct,
 } from "@/lib/services/sales";
 import { requireUser } from "@/lib/session";
 import { formatCurrency, formatDateTime, formatNumber } from "@/lib/utils";
@@ -25,24 +25,20 @@ import { formatCurrency, formatDateTime, formatNumber } from "@/lib/utils";
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
-  const order = await getOrder(id);
+  // Both only need `id`/`user.role` and don't depend on each other — fetch in
+  // parallel rather than paying two sequential database round trips.
+  const [order, auditTrail] = await Promise.all([getOrder(user.role, id), getOrderAuditTrail(id)]);
   if (!order) notFound();
 
   const userCanWrite = canWrite(user.role, "sales");
   const allowedNext = getAllowedNextStatuses(order.status);
-  const auditTrail = await getOrderAuditTrail(order.id);
 
   const unmatchedProductIds = Array.from(
     new Set(order.items.filter((i) => !i.finishedGoodId).map((i) => i.productId))
   );
-  const finishedGoodsByProduct: Record<string, { id: string; quantity: number; uom: string }[]> = {};
-  if (allowedNext.includes("BATCH_MATCHED")) {
-    await Promise.all(
-      unmatchedProductIds.map(async (productId) => {
-        finishedGoodsByProduct[productId] = await listAvailableFinishedGoods(productId);
-      })
-    );
-  }
+  const finishedGoodsByProduct = allowedNext.includes("BATCH_MATCHED")
+    ? await listAvailableFinishedGoodsByProduct(unmatchedProductIds)
+    : {};
 
   const orderTotal = order.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 

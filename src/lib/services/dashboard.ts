@@ -11,8 +11,8 @@ function daysAgo(n: number) {
 
 export async function getDashboardSummary() {
   const monthStart = startOfMonth();
-  const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+  const in30Days = new Date(todayStart.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   const [
     totalBatches,
@@ -48,7 +48,7 @@ export async function getDashboardSummary() {
     prisma.batchCard.count({ where: { status: "ON_HOLD" } }),
     prisma.stockLot.count({ where: { status: "AVAILABLE" } }),
     prisma.stockLot.count({
-      where: { status: "AVAILABLE", expiryDate: { lte: in30Days, gte: new Date() } },
+      where: { status: "AVAILABLE", expiryDate: { lte: in30Days, gte: todayStart } },
     }),
     prisma.finishedGood.aggregate({ _sum: { quantity: true } }),
     prisma.qCSampleRequest.count({ where: { status: "PENDING" } }),
