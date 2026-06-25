@@ -22,10 +22,14 @@ import {
   QcResultPieChart,
 } from "@/components/dashboard/charts";
 import { KpiCard } from "@/components/dashboard/kpi-card";
+import { MountedGate } from "@/components/shared/mounted-gate";
 import { PageHeader } from "@/components/shared/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { canRead, type ModuleKey } from "@/lib/permissions";
 import { getDashboardSummary } from "@/lib/services/dashboard";
 import { requireUser } from "@/lib/session";
+
+const chartSkeleton = <Skeleton className="h-64 w-full" />;
 
 /** Maps an AuditLog `entity` name to the module that governs its visibility. */
 const ENTITY_MODULE: Record<string, ModuleKey[]> = {
@@ -159,11 +163,31 @@ export default async function DashboardPage() {
       )}
 
       <section className="grid gap-4 lg:grid-cols-2">
-        {can("production") && <ProductionTrendChart data={charts.productionTrend} />}
-        {can("inventory") && <InventoryLevelsChart data={charts.inventoryLevels} />}
-        {can("quality") && <QcResultPieChart data={charts.labTestBreakdown} />}
-        {can("safety") && <IncidentBreakdownChart data={charts.incidentBreakdown} />}
-        {can("sales") && <OrderStatusPieChart data={charts.orderStatusBreakdown} />}
+        {can("production") && (
+          <MountedGate fallback={chartSkeleton}>
+            <ProductionTrendChart data={charts.productionTrend} />
+          </MountedGate>
+        )}
+        {can("inventory") && (
+          <MountedGate fallback={chartSkeleton}>
+            <InventoryLevelsChart data={charts.inventoryLevels} />
+          </MountedGate>
+        )}
+        {can("quality") && (
+          <MountedGate fallback={chartSkeleton}>
+            <QcResultPieChart data={charts.labTestBreakdown} />
+          </MountedGate>
+        )}
+        {can("safety") && (
+          <MountedGate fallback={chartSkeleton}>
+            <IncidentBreakdownChart data={charts.incidentBreakdown} />
+          </MountedGate>
+        )}
+        {can("sales") && (
+          <MountedGate fallback={chartSkeleton}>
+            <OrderStatusPieChart data={charts.orderStatusBreakdown} />
+          </MountedGate>
+        )}
         <ActivityFeed items={visibleActivity} />
       </section>
     </div>
