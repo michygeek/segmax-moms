@@ -15,12 +15,18 @@ function createPrismaClient() {
   // ("Server has closed the connection") on the next query that reuses it.
   // keepAlive plus a short idle timeout keep the client-side pool recycling
   // connections faster than the server/network drops them.
+  // Kept small on purpose: in serverless (Vercel), every concurrent function
+  // invocation can spin up its own separate pool, so a large `max` here
+  // multiplies across instances and can exhaust Supabase's shared pooler
+  // connection limit — Supabase's own pooler (already in use via the
+  // pgbouncer transaction-mode URL) is what's meant to handle the real
+  // multiplexing across instances, not this per-instance client pool.
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
     keepAlive: true,
     idleTimeoutMillis: 20_000,
-    max: 10,
+    max: 5,
   });
   // An idle pooled client that the server already closed emits an 'error'
   // event when pg destroys it in the background; without a listener this
