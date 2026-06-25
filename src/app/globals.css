@@ -127,5 +127,8 @@
   }
   html {
     @apply font-sans;
+    /* Bump the base size so every rem-based text/spacing utility scales up
+       app-wide for readability, instead of touching every component. */
+    font-size: 18px;
   }
 }

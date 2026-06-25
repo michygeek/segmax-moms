@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Boxes,
+  Download,
   FlaskConical,
   Gauge,
   HardHat,
@@ -109,6 +110,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { title: "Users", href: "/admin/users", icon: ShieldCheck },
       { title: "Audit Log", href: "/admin/audit-log", icon: ShieldCheck },
+      { title: "Reports", href: "/admin/reports", icon: Download },
     ],
   },
 ];
