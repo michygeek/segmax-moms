@@ -1,6 +1,6 @@
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { NetworkOnly, Serwist } from "serwist";
+import { disableNavigationPreload, NetworkOnly, Serwist } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -10,17 +10,20 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
+// Every strategy's fetch path (including NetworkOnly) unconditionally awaits
+// `event.preloadResponse` first when navigation preload is active. It has
+// known issues with *redirected* navigations specifically — and middleware
+// redirects unauthenticated requests straight to /login?callbackUrl=..., which
+// is exactly the request failing with a "no-response"/promise-rejected error.
+// `navigationPreload: false` below only skips *enabling* it on a fresh
+// install — browsers that already had it enabled by an earlier deploy keep it
+// on across updates unless something explicitly disables it. Do that here.
+disableNavigationPreload();
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
-  // Every strategy's fetch path (including NetworkOnly) unconditionally
-  // awaits `event.preloadResponse` first when this is on. Navigation preload
-  // has known issues with *redirected* navigations specifically — and
-  // middleware redirects unauthenticated requests straight to
-  // /login?callbackUrl=..., which is exactly the request that was failing
-  // with a "no-response"/promise-rejected error. Not worth the latency
-  // trade-off here; turn it off.
   navigationPreload: false,
   // Static assets (JS/CSS/images/fonts) are precached/cached for fast, app-like
   // loads. Pages and API routes are data-driven (batches, stock, orders) and are
