@@ -32,7 +32,7 @@ export function ProductionTrendChart({ data }: { data: { date: string; count: nu
         <CardTitle className="text-base">Batches Created (Last 14 Days)</CardTitle>
       </CardHeader>
       <CardContent className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
           <AreaChart data={data}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d) => d.slice(5)} />
@@ -53,7 +53,7 @@ export function InventoryLevelsChart({ data }: { data: { name: string; quantity:
         <CardTitle className="text-base">Raw Material Stock Levels</CardTitle>
       </CardHeader>
       <CardContent className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
           <BarChart data={data} layout="vertical" margin={{ left: 24 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis type="number" tick={{ fontSize: 11 }} />
@@ -76,7 +76,7 @@ export function QcResultPieChart({ data }: { data: { name: string; value: number
       </CardHeader>
       <CardContent className="h-64">
         {hasData ? (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <PieChart>
               <Pie data={data} dataKey="value" nameKey="name" outerRadius={80} label>
                 {data.map((_, i) => (
@@ -104,7 +104,7 @@ export function IncidentBreakdownChart({ data }: { data: { type: string; count: 
       </CardHeader>
       <CardContent className="h-64">
         {data.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis dataKey="type" tick={{ fontSize: 11 }} />
@@ -133,7 +133,7 @@ export function OrderStatusPieChart({ data }: { data: { status: string; count: n
       </CardHeader>
       <CardContent className="h-64">
         {hasData ? (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <PieChart>
               <Pie data={chartData} dataKey="value" nameKey="name" outerRadius={80} label>
                 {chartData.map((_, i) => (
