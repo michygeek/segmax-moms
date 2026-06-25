@@ -14,7 +14,14 @@ const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,
   clientsClaim: true,
-  navigationPreload: true,
+  // Every strategy's fetch path (including NetworkOnly) unconditionally
+  // awaits `event.preloadResponse` first when this is on. Navigation preload
+  // has known issues with *redirected* navigations specifically — and
+  // middleware redirects unauthenticated requests straight to
+  // /login?callbackUrl=..., which is exactly the request that was failing
+  // with a "no-response"/promise-rejected error. Not worth the latency
+  // trade-off here; turn it off.
+  navigationPreload: false,
   // Static assets (JS/CSS/images/fonts) are precached/cached for fast, app-like
   // loads. Pages and API routes are data-driven (batches, stock, orders) and are
   // intentionally NOT cached here, so users never see stale ERP data offline.
