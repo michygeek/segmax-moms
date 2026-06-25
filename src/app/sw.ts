@@ -28,15 +28,18 @@ const serwist = new Serwist({
   // Static assets (JS/CSS/images/fonts) are precached/cached for fast, app-like
   // loads. Pages and API routes are data-driven (batches, stock, orders) and are
   // intentionally NOT cached here, so users never see stale ERP data offline.
+  //
+  // Page *navigations* specifically are excluded from SW handling entirely
+  // (not just cached-vs-not — bypassed outright). Several narrower attempts
+  // at this (bypassing only /login, disabling navigation preload) didn't
+  // stop a "no-response"/promise-rejected error on the post-login redirect,
+  // so rather than keep chasing which exact Workbox internal is responsible,
+  // every navigation now skips the SW's fetch handling and goes straight to
+  // the network like a SW was never there. This costs nothing here — pages
+  // were never meant to be cached anyway.
   runtimeCaching: [
-    // /login is hit right as a freshly-installed service worker is claiming
-    // clients (skipWaiting + clientsClaim) — that activation race can make
-    // Workbox's NetworkFirst fallback-to-cache path throw "no-response" for
-    // this URL on a brand new install, breaking the very first login.
-    // Bypass the SW for it entirely; it's a low-traffic page with nothing
-    // worth caching anyway.
     {
-      matcher: ({ url }: { url: URL }) => url.pathname === "/login",
+      matcher: ({ request }: { request: Request }) => request.mode === "navigate",
       handler: new NetworkOnly(),
     },
     ...defaultCache,
