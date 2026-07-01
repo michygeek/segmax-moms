@@ -20,6 +20,22 @@ declare const self: ServiceWorkerGlobalScope;
 // on across updates unless something explicitly disables it. Do that here.
 disableNavigationPreload();
 
+// On activation, delete all caches that Serwist didn't create in this version.
+// This prevents a stale-chunk ChunkLoadError: after a new deploy the page HTML
+// (served fresh via NetworkOnly) references new chunk hashes, but without this
+// the old SW cache would either serve the wrong file or miss entirely and time out.
+self.addEventListener("activate", (event: ExtendableEvent) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys
+          .filter((key) => !key.startsWith("serwist-precache"))
+          .map((key) => caches.delete(key)),
+      ),
+    ),
+  );
+});
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
   skipWaiting: true,

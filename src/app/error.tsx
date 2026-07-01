@@ -14,6 +14,12 @@ export default function ErrorBoundary({
 }) {
   useEffect(() => {
     console.error(error);
+    // ChunkLoadError means the browser tried to fetch a JS chunk that no longer
+    // exists on the server (stale page after a new deployment). A hard reload
+    // fetches fresh HTML with correct chunk hashes, fixing the issue automatically.
+    if (error.name === "ChunkLoadError") {
+      window.location.reload();
+    }
   }, [error]);
 
   return (
